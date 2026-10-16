@@ -95,3 +95,37 @@ def test_pinn_forward_short():
     err = np.max(np.abs(pinn.predict(r, prob, x, 4 * 3600.0)
                         - an.diffusion_robin(x, 4 * 3600.0, 1.5e-11, 2e-7, 0.2, 1.0))) / 0.8
     assert err < 0.08
+
+
+# ---------------------------------------------------------------- milestone 2
+
+@needs_ff
+def test_v6_stage_split_invariance():
+    assert cases.v6_stage_split()["err"] < 1e-10
+
+
+@needs_ff
+def test_v8_mass_conservation():
+    assert cases.v8_conservation()["err"] < 1e-8
+
+
+@needs_ff
+def test_v9_cross_code():
+    assert cases.v9_cross_code()["err"] < 1e-10
+
+
+@needs_ff
+def test_v10_em_surface_power():
+    assert cases.v10_em_surface_power()["err"] < 1e-3
+
+
+@needs_ff
+def test_v11_energy_conservation():
+    e = cases._ih(theat=0.3, tend=0.5, dt=1e-2)["energy"]
+    bal = np.abs(e["Ejoule"] - e["Estored"] - e["Eloss"]) / e["Ejoule"].max()
+    assert bal.max() < 1e-8
+
+
+def test_andrews_42crmo4():
+    ac1, ac3 = mat.andrews_ac1_ac3(mat.STEELS["42CrMo4"])
+    assert 700 < ac1 < ac3 < 850

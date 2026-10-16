@@ -38,6 +38,15 @@ one-way parameter chain.
 | P2 | Digitized published profiles | `data/published/*.csv` with provenance | `hybridht/published.py` |
 | N1 | PINN forward (V2 problem) | analytical + FreeFEM | `hybridht/pinn.py` |
 | N2 | PINN inverse: identify D and β from sparse noisy data | known true values (synthetic data) | `hybridht/pinn.py` |
+| V6 | Multi-stage schedule: splitting a stage | exact invariance | `freefem/carbonitriding_1d.edp` |
+| V7 | C + N co-diffusion | analytical (each species) | `freefem/carbonitriding_1d.edp` |
+| V8 | Boost/diffuse carbonitriding | mass conservation (surface flux vs profile) | `freefem/carbonitriding_1d.edp` |
+| V9 | Carbonitriding solver vs carburizing solver | cross-code identity | both |
+| V10 | Induction with imposed surface field, cold and hot | P = H0²ωμδ/4 | `freefem/induction_heating_1d.edp` |
+| V11 | Coupled EM–thermal heating + spray quench | energy conservation | `freefem/induction_heating_1d.edp` |
+| V12 | Coupled problem, time-step refinement | observed order | `freefem/induction_heating_1d.edp` |
+| P3 | Boost/diffuse carbonitriding cycle | model only (case depth at C + N = 0.35 wt%) | `hybridht/cases.py` |
+| P4 | Induction hardening of 42CrMo4 at 10/30/100 kHz | model only (peak T ≥ Andrews Ac3) | `hybridht/cases.py` |
 
 Results, plots and the acceptance criteria are in [`results/REPORT.md`](results/REPORT.md).
 
@@ -68,9 +77,10 @@ in `environment/Dockerfile`.
 
 1. Digitize the candidate datasets listed in `data/published/README.md`, starting with the
    20MnCr5 β/D study and the 42CrMo4 induction case.
-2. Multi-stage boost/diffuse carburizing and nitrogen co-diffusion (carbonitriding).
-3. Coupled induction heating: eddy currents + heat with μ(T), σ(T), on an axisymmetric then a 2D
-   tooth geometry.
+2. ~~Multi-stage boost/diffuse carburizing and nitrogen co-diffusion (carbonitriding).~~ Done (V6–V9, P3);
+   still missing: C–N thermodynamic interaction.
+3. ~~Coupled induction heating with μ(T), σ(T).~~ Done in 1D (V10–V12, P4); next: axisymmetric, then a
+   2D tooth geometry, temperature-dependent k and cp (latent heat), μ(H) saturation.
 4. Phase kinetics (Leblond/JMAK, Koistinen–Marburger with Ms(C, N)) → hardness, then
    thermo-elasto-plasticity with TRIP → residual stress and distortion.
 5. OpenFOAM quench HTC map and OpenCalphad Ms/phase data, once a Fe-C-N-Cr-Mo-Ni TDB is secured.

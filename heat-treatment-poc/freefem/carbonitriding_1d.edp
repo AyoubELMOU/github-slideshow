@@ -1,0 +1,97 @@
+// 1D multi-stage carburizing / carbonitriding: carbon and nitrogen diffusion in austenite.
+//   dC/dt = d/dx(D_C(C, T) dC/dx),   dN/dt = d/dx(D_N(T) dN/dx)
+//   surface (label 4): -D dX/dx = beta_X (X_pot - X)  for X = C, N;  back face: zero flux.
+//
+// Stage schedule (-stages file): first line = number of stages, then one line per stage:
+//   duration[s]  T[K]  C_potential[wt%]  beta_C[m/s]  N_potential[wt%]  beta_N[m/s]
+// A stage with beta < 0 holds that species' surface value fixed (Dirichlet).
+// A stage with beta = 0 seals the surface for that species (e.g. diffuse without N, or cooling).
+//
+// Diffusivities:
+//   D_C : -dmodel tibbetts -> Tibbetts (1980), D_C(C, T); -dmodel const -> -DC
+//   D_N : -dmodel tibbetts -> 0.91 exp(-168600 / (R T)) cm^2/s (Grieveson & Turkdogan 1964,
+//         as used in carbonitriding models); -dmodel const -> -DN
+// C-N thermodynamic interaction (N raising carbon activity) is NOT included yet.
+//
+// Outputs: -out     CSV (t, x, C, N) at -nout equally spaced times and at every stage end
+//          -mass    CSV (t, inC, massC, inN, massN): absorbed amount from surface flux vs
+//                   integral of (X - X0) dx, both per unit area [wt% m]; must agree (conservation).
+
+include "args.idp"
+
+real L      = argReal("-L", 6e-3);
+int  nx     = argReal("-nx", 300);
+real dtmax  = argReal("-dt", 60.);
+real C0     = argReal("-C0", 0.2);
+real N0     = argReal("-N0", 0.0);
+string dmodel = argStr("-dmodel", "tibbetts");
+real DCc    = argReal("-DC", 1.5e-11);
+real DNc    = argReal("-DN", 1.0e-11);
+int  npicard = argReal("-picard", 2);
+int  nout   = argReal("-nout", 1);
+string stagefile = argStr("-stages", "stages.txt");
+string out  = argStr("-out", "profile.csv");
+string mout = argStr("-mass", "mass.csv");
+
+int ns;
+ifstream sf(stagefile);
+sf >> ns;
+real[int] sdur(ns), sT(ns), scC(ns), sbC(ns), scN(ns), sbN(ns);
+for (int i = 0; i < ns; i++) sf >> sdur[i] >> sT[i] >> scC[i] >> sbC[i] >> scN[i] >> sbN[i];
+real ttot = sdur.sum;
+
+real TK = sT[0];
+func real DCt(real cc) {
+  real c = max(cc, 0.);
+  return 0.47e-4 * exp(-1.6 * c) * exp(-(37000. - 6600. * c) / (1.98720 * TK));
+}
+func real DNt() { return 0.91e-4 * exp(-168600. / (8.31446 * TK)); }
+
+real H = L / nx;
+mesh Th = square(nx, 1, [L * x, H * y]);
+fespace Vh(Th, P1);
+Vh C = C0, N = N0, Cold, Nold, Cit, w, DC, DN, one = 1;
+
+macro grad(u) [dx(u), dy(u)] //
+real dt, bC, pC, bN, pN, Dn;
+// Robin: beta > 0; sealed: beta = 0 (term vanishes); Dirichlet handled by separate problems.
+problem stepC(C, w) = int2d(Th)(C * w / dt + DC * (grad(C)' * grad(w))) - int2d(Th)(Cold * w / dt)
+                    + int1d(Th, 4)(bC * C * w) - int1d(Th, 4)(bC * pC * w);
+problem stepCd(C, w) = int2d(Th)(C * w / dt + DC * (grad(C)' * grad(w))) - int2d(Th)(Cold * w / dt)
+                     + on(4, C = pC);
+problem stepN(N, w) = int2d(Th)(N * w / dt + DN * (grad(N)' * grad(w))) - int2d(Th)(Nold * w / dt)
+                    + int1d(Th, 4)(bN * N * w) - int1d(Th, 4)(bN * pN * w);
+problem stepNd(N, w) = int2d(Th)(N * w / dt + DN * (grad(N)' * grad(w))) - int2d(Th)(Nold * w / dt)
+                     + on(4, N = pN);
+
+ofstream f(out); f.precision(12); f << "t,x,C,N\n";
+ofstream fm(mout); fm.precision(12); fm << "t,inC,massC,inN,massN\n";
+real t = 0, inC = 0, inN = 0, tnext = ttot / nout;
+for (int s = 0; s < ns; s++) {
+  TK = sT[s]; bC = sbC[s]; pC = scC[s]; bN = sbN[s]; pN = scN[s];
+  int nsteps = max(1, int(ceil(sdur[s] / dtmax)));
+  dt = sdur[s] / nsteps;
+  for (int n = 1; n <= nsteps; n++) {
+    Cold = C; Nold = N; Cit = C;
+    // Absorbed amount = change of integral (flux form is ambiguous for Dirichlet stages).
+    real mC0 = int2d(Th)(Cold) / H, mN0 = int2d(Th)(Nold) / H;
+    for (int k = 0; k < ((dmodel == "tibbetts") ? npicard : 1); k++) {
+      if (dmodel == "tibbetts") DC = DCt(Cit); else DC = DCc;
+      if (bC < 0) stepCd; else stepC;
+      Cit = C;
+    }
+    if (dmodel == "tibbetts") Dn = DNt(); else Dn = DNc;
+    DN = Dn;
+    if (bN < 0) stepNd; else stepN;
+    t += dt;
+    // Surface flux of this implicit step (Robin) -> independent conservation check.
+    if (bC > 0) inC += dt * int1d(Th, 4)(bC * (pC - C)) / H; else inC += int2d(Th)(C) / H - mC0;
+    if (bN > 0) inN += dt * int1d(Th, 4)(bN * (pN - N)) / H; else inN += int2d(Th)(N) / H - mN0;
+    if (t >= tnext - 1e-9 * ttot || n == nsteps) {
+      for (int i = 0; i < Th.nv; i++)
+        if (Th(i).y < 0.5 * H) f << t << "," << Th(i).x << "," << C[][i] << "," << N[][i] << "\n";
+      fm << t << "," << inC << "," << int2d(Th)(C - C0) / H << "," << inN << "," << int2d(Th)(N - N0) / H << "\n";
+      if (t >= tnext - 1e-9 * ttot) tnext += ttot / nout;
+    }
+  }
+}

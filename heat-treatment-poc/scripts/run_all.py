@@ -36,7 +36,9 @@ plt.rcParams.update({
 })
 
 # Acceptance criteria (agreed up front; see README).
-TOL = dict(profile=1e-3, eddy=1e-3, skin=1e-3, order_min=1.8, harris=0.20, pinn_fwd=0.03, pinn_inv=0.15)
+TOL = dict(profile=1e-3, eddy=1e-3, skin=1e-3, order_min=1.8, harris=0.20, pinn_fwd=0.03, pinn_inv=0.15,
+           exact=1e-10, conservation=1e-8, em_power=1e-3, order_min_coupled=0.9)
+C4 = "#6250d6"
 
 
 def save(fig, name):
@@ -131,6 +133,112 @@ def validation_harris(summary):
     summary["validation_harris"]["passed"] = bool(
         summary["validation_harris"]["beta=2e-07"]["max_rel_diff"] <= TOL["harris"])
     summary["validation_harris"]["tol"] = TOL["harris"]
+
+
+def verification_m2(summary):
+    v6, v7, v8, v9 = cases.v6_stage_split(), cases.v7_two_species_analytical(), cases.v8_conservation(), cases.v9_cross_code()
+    v10, v11, v12 = cases.v10_em_surface_power(), cases.v11_energy_conservation(), cases.v12_time_convergence()
+
+    fig, ax = plt.subplots(2, 2, figsize=(9, 6.5))
+    a = ax[0, 0]
+    a.plot(v7["x"] * 1e3, v7["C"], color=C1, label="C, FreeFEM")
+    a.plot(v7["x"] * 1e3, v7["N"], color=C2, label="N, FreeFEM")
+    a.plot(v7["x"] * 1e3, v7["refC"], "--", color=REF, lw=1.5, label="analytical")
+    a.plot(v7["x"] * 1e3, v7["refN"], "--", color=REF, lw=1.5)
+    a.set(title=f"{v7['name']}\nmax error {v7['err']:.1e} (of range)", xlabel="depth [mm]",
+          ylabel="content [wt%]", xlim=(0, 3))
+    a.legend()
+    e = v11["energy"]
+    a = ax[0, 1]
+    a.plot(e["t"], e["Ejoule"] / 1e6, color=C1, label="Joule energy in")
+    a.plot(e["t"], (e["Estored"] + e["Eloss"]) / 1e6, "--", color=REF, lw=1.5, label="stored + lost to quench")
+    a.plot(e["t"], e["Eloss"] / 1e6, color=C2, label="lost to quench")
+    a.set(title=f"{v11['name']}\nmax imbalance {v11['err']:.1e} (of input)", xlabel="time [s]",
+          ylabel="energy [MJ/m²]")
+    a.legend()
+    a = ax[1, 0]
+    on = e["Psurf"] > 0
+    a.plot(e["Tsurf"][on], e["Psurf"][on] / 1e6, color=C1)
+    a.axvline(cases.IH_DEFAULT["Tc"], color=REF, ls=":", lw=1)
+    a.text(cases.IH_DEFAULT["Tc"] - 10, 0.5, "Curie point", rotation=90, ha="right", color=REF, fontsize=8)
+    a.set(title="Induction power vs surface temperature (30 kHz)", xlabel="surface temperature [°C]",
+          ylabel="absorbed power [MW/m²]", ylim=(0, None))
+    a = ax[1, 1]
+    d = np.abs(np.diff(v12["Tsurf"]))
+    a.loglog(v12["dt"][1:], d, "o-", color=C1, ms=6, label="|ΔT_surface| between successive Δt")
+    a.loglog(v12["dt"][1:], d[-1] * (v12["dt"][1:] / v12["dt"][-1]), "--", color=REF, lw=1.5, label="slope 1")
+    a.set(title=f"{v12['name']}\nobserved order {v12['orders'][-1]:.2f}", xlabel="time step [s]",
+          ylabel="change in surface T [°C]")
+    a.legend()
+    save(fig, "verification_m2.png")
+
+    checks = {v6["name"]: (v6["err"], TOL["exact"]), v7["name"]: (v7["err"], TOL["profile"]),
+              v8["name"]: (v8["err"], TOL["conservation"]), v9["name"]: (v9["err"], TOL["exact"]),
+              v10["name"]: (v10["err"], TOL["em_power"]), v11["name"]: (v11["err"], TOL["conservation"])}
+    summary["verification_m2"] = {k: dict(error=e_, tol=t, passed=bool(e_ <= t)) for k, (e_, t) in checks.items()}
+    summary["verification_m2"][v10["name"]]["regimes"] = v10["regimes"]
+    summary["verification_m2"][v12["name"]] = dict(
+        dt=v12["dt"].tolist(), Tsurf=v12["Tsurf"].tolist(), orders=v12["orders"].tolist(),
+        tol=TOL["order_min_coupled"], passed=bool(v12["orders"][-1] >= TOL["order_min_coupled"]))
+
+
+def processes(summary):
+    cn = cases.p3_carbonitriding_cycle()
+    ih = cases.p4_induction_hardening()
+
+    fig, ax = plt.subplots(1, 2, figsize=(9.5, 3.8))
+    a = ax[0]
+    a.plot(cn["x"] * 1e3, cn["C"], color=C1, label="carbon")
+    a.plot(cn["x"] * 1e3, cn["N"], color=C2, label="nitrogen")
+    a.plot(cn["x"] * 1e3, cn["C"] + cn["N"], color=C3, label="C + N")
+    a.axhline(cn["threshold"], color=REF, ls=":", lw=1)
+    a.text(1.95, cn["threshold"] + 0.02, f"case threshold C + N = {cn['threshold']} wt%", ha="right", color=REF, fontsize=8)
+    a.set(title="P3 carbonitriding: profiles after the cycle", xlabel="depth [mm]", ylabel="content [wt%]", xlim=(0, 2))
+    a.legend()
+    a = ax[1]
+    a.plot(cn["t_h"], cn["depth_mm"], "o-", color=C3, ms=6)
+    a.axvline(cn["stages"][0]["hours"], color=REF, ls=":", lw=1)
+    a.text(cn["stages"][0]["hours"] - 0.05, 0.05, "boost → diffuse", rotation=90, ha="right", color=REF, fontsize=8)
+    a.set(title="Case depth (C + N ≥ 0.35 wt%) during the cycle", xlabel="time [h]", ylabel="case depth [mm]", ylim=(0, None))
+    save(fig, "process_carbonitriding.png")
+
+    fig, ax = plt.subplots(1, 2, figsize=(9.5, 3.8))
+    lo, hi = ih["margins"]
+    for (f, r), col in zip(ih["runs"].items(), (C1, C2, C3)):
+        ax[0].fill_between(r["t"], r["depth_mm"][hi], r["depth_mm"][lo], color=col, alpha=0.15, lw=0)
+        ax[0].plot(r["t"], r["depth_mm"][lo], color=col, label=f"{f/1e3:.0f} kHz")
+        x, T = r["profile"]
+        ax[1].plot(x * 1e3, T, color=col, label=f"{f/1e3:.0f} kHz (surface max {r['Tsurf_max']:.0f} °C)")
+    ax[0].set(title=f"P4 hardened depth, {ih['steel']}, equal power {ih['P_cold']/1e6:.0f} MW/m²\n"
+                    f"line: peak T ≥ Ac3 = {ih['ac3']:.0f} °C; band down to Ac3 + {hi:.0f} °C",
+              xlabel="heating time [s]", ylabel="hardened depth [mm]")
+    ax[0].legend()
+    ax[1].axhline(ih["ac3"], color=REF, ls=":", lw=1)
+    ax[1].text(9.8, ih["ac3"] + 15, "Ac3 (Andrews)", ha="right", color=REF, fontsize=8)
+    ax[1].set(title="Temperature at the end of heating (3 s)", xlabel="depth [mm]", ylabel="temperature [°C]", xlim=(0, 10))
+    ax[1].legend(fontsize=7.5)
+    save(fig, "process_induction.png")
+
+    fig, a = plt.subplots(figsize=(6.4, 4))
+    a.plot(cn["t_h"] * HOUR, cn["depth_mm"], "o-", color=C3, ms=5, label="carbonitriding, 860 °C (C + N ≥ 0.35 wt%)")
+    for (f, r), col in zip(ih["runs"].items(), (C1, C2, C4)):
+        m = r["depth_mm"][lo] > 0
+        a.plot(r["t"][m], r["depth_mm"][lo][m], color=col, label=f"induction {f/1e3:.0f} kHz, 42CrMo4 (peak T ≥ Ac3)")
+    a.set_xscale("log")
+    a.set(title="Model-only comparison: case depth vs process time\n(different steels and depth criteria; not yet validated)",
+          xlabel="process time [s] (heating / furnace time only)", ylabel="case depth [mm]", ylim=(0, None))
+    a.legend(fontsize=7.5)
+    save(fig, "process_comparison.png")
+
+    summary["process_carbonitriding"] = dict(
+        stages=cn["stages"], t_h=cn["t_h"].tolist(), depth_mm=cn["depth_mm"].tolist(),
+        surface_C=float(cn["C"][0]), surface_N=float(cn["N"][0]), threshold=cn["threshold"])
+    summary["process_induction"] = dict(
+        steel=ih["steel"], ac1=ih["ac1"], ac3=ih["ac3"], margins=list(ih["margins"]), P_cold=ih["P_cold"],
+        runs={f"{f/1e3:.0f}kHz": dict(H0=r["H0"], Tsurf_max=r["Tsurf_max"], t=r["t"].tolist(),
+                                      depth_mm={str(k): v.tolist() for k, v in r["depth_mm"].items()},
+                                      E_joule_MJ_m2=float(r["energy"]["Ejoule"][-1] / 1e6))
+              for f, r in ih["runs"].items()})
 
 
 def validation_published(summary):
@@ -277,6 +385,32 @@ def report(summary):
             L.append(f"- `{e['file']}` ({e['source']}, doi:{e['doi']}): RMSE {e['rmse']:.3f} wt%, bias "
                      f"{e['bias']:+.3f}, max {e['max_abs']:.3f}; β = {e['beta']:.1e}"
                      f"{' (assumed)' if e['beta_assumed'] else ''}")
+    L += ["", "## Milestone 2: carbonitriding and coupled induction heating", "",
+          "### Verification", "", "| Case | Error | Tolerance | Result |", "|---|---|---|---|"]
+    for k, v in summary["verification_m2"].items():
+        e = f"observed order {v['orders'][-1]:.2f}" if "orders" in v else f"{v['error']:.2e}"
+        L.append(f"| {k} | {e} | {v['tol']} | {'PASS' if v['passed'] else 'FAIL'} |")
+    L += ["", "![verification m2](verification_m2.png)", "",
+          "### Process demonstrations (model only, not yet validated against measurements)", "",
+          "Assumed inputs (to be replaced by measured / OpenFOAM / OpenCalphad data): carbon and nitrogen",
+          "potentials, β_N = 1e-7 m/s, induction properties μr = 20 below Curie (760 °C), σ(T) linear in",
+          "resistivity, k = 30 W/m K, ρcp = 4 MJ/m³K, spray-quench h = 2e4 W/m²K. Nitrogen diffusivity:",
+          "Grieveson & Turkdogan (1964); C-N thermodynamic interaction not yet included.", ""]
+    pc = summary["process_carbonitriding"]
+    cycle = " + ".join(f"{st['hours']:g} h at {st['T_C']:.0f} °C" for st in pc["stages"])
+    L += [f"**Carbonitriding** ({cycle}): "
+          f"surface C = {pc['surface_C']:.2f} wt%, N = {pc['surface_N']:.2f} wt%, case depth "
+          f"(C + N ≥ {pc['threshold']} wt%) = {pc['depth_mm'][-1]:.2f} mm.", "",
+          "![carbonitriding](process_carbonitriding.png)", ""]
+    pi_ = summary["process_induction"]
+    L += [f"**Induction hardening** ({pi_['steel']}, Andrews Ac1 = {pi_['ac1']:.0f} °C, Ac3 = {pi_['ac3']:.0f} °C, "
+          f"equal cold surface power {pi_['P_cold']/1e6:.0f} MW/m², 3 s heating):", "",
+          "| Frequency | Hardened depth, peak T ≥ Ac3 [mm] | ≥ Ac3 + 100 °C [mm] | Peak surface T [°C] | Joule energy [MJ/m²] |",
+          "|---|---|---|---|---|"]
+    for f, r in pi_["runs"].items():
+        L.append(f"| {f} | {r['depth_mm']['0.0'][-1]:.2f} | {r['depth_mm']['100.0'][-1]:.2f} | "
+                 f"{r['Tsurf_max']:.0f} | {r['E_joule_MJ_m2']:.1f} |")
+    L += ["", "![induction](process_induction.png)", "", "![comparison](process_comparison.png)"]
     if "pinn_forward" in summary:
         pf, pi = summary["pinn_forward"], summary["pinn_inverse"]
         L += ["", "## PINN (hybrid layer)", "",
@@ -308,7 +442,8 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     summary = {}
     for name, fn in [("verification", verification), ("validation (Harris)", validation_harris),
-                     ("validation (published)", validation_published)]:
+                     ("validation (published)", validation_published),
+                     ("verification (milestone 2)", verification_m2), ("process demonstrations", processes)]:
         t0 = time.time()
         fn(summary)
         print(f"{name}: {time.time() - t0:.0f} s", flush=True)

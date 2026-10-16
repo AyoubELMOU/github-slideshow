@@ -1,0 +1,96 @@
+// 1D coupled induction heating + spray quench of a steel slab (surface at x = 0).
+//
+// Electromagnetics (time-harmonic, quasi-static per thermal step):
+//   d/dx( nu(T) dA/dx ) = i omega sigma(T) A,   nu = 1 / (mu0 mur(T))
+//   surface (label 4): nu dA/dn = H0 (tangential field amplitude imposed by the inductor)
+//   back (label 2):    A = 0  (slab depth >> skin depth)
+//   Joule power density p = 0.5 sigma omega^2 |A|^2
+// Heat:
+//   rho cp dT/dt = k d2T/dx2 + p,   -k dT/dn = h (T - Tamb) at the surface, adiabatic back face.
+// Process: inductor on (H0) for t < -theat, then off and spray quench with -hq.
+//
+// Property models (representative, NOT grade-specific data; replace with measured/CALPHAD data):
+//   mur(T)   = 1 + (mur0 - 1) * 0.5 (1 - tanh((T - Tc) / dTc))      (loss of ferromagnetism at Curie)
+//   sigma(T) = sigma20 / (1 + aR (T - 20))
+// Coupling: EM solved with T from the previous step (lagged), then implicit Euler heat step.
+//
+// Outputs: -out    CSV (t, x, T, p, Tmax) at -nout equally spaced times
+//          -energy CSV (t, Ejoule, Estored, Eloss, Tsurf, Psurf) every step [J/m^2, W/m^2];
+//                  Ejoule = Estored + Eloss is the discrete energy-conservation check.
+
+include "args.idp"
+
+real L      = argReal("-L", 0.02);
+int  nx     = argReal("-nx", 400);
+real freq   = argReal("-freq", 30e3);
+real H0     = argReal("-H0", 1.5e5);
+real mur0   = argReal("-mur0", 20.);
+real Tc     = argReal("-Tc", 760.);
+real dTc    = argReal("-dTc", 15.);
+real sigma20 = argReal("-sigma20", 4.5e6);
+real aR     = argReal("-aR", 5.1e-3);
+real kth    = argReal("-k", 30.);
+real rhocp  = argReal("-rhocp", 4.0e6);
+real T0     = argReal("-T0", 20.);
+real Tamb   = argReal("-Tamb", 20.);
+real hheat  = argReal("-hheat", 0.);
+real theat  = argReal("-theat", 3.);
+real hq     = argReal("-hq", 2e4);
+real tend   = argReal("-tend", 3.);
+real dt     = argReal("-dt", 5e-3);
+int  nout   = argReal("-nout", 6);
+string out  = argStr("-out", "profile.csv");
+string eout = argStr("-energy", "energy.csv");
+
+real mu0 = 4e-7 * pi, omega = 2 * pi * freq;
+real H = L / nx;
+// Graded mesh: fine near the surface where the cold skin depth is a fraction of a mm.
+mesh Th = square(nx, 1, [L * x^2, H * y]);
+fespace Ah(Th, P2);
+fespace Vh(Th, P1);
+Ah<complex> A, wa;
+Ah nuA, sigA;
+Vh T = T0, Told, w, p, Tmax = T0, one = 1;
+
+func real murT(real TT) { return 1. + (mur0 - 1.) * 0.5 * (1. - tanh((TT - Tc) / dTc)); }
+func real sigT(real TT) { return sigma20 / (1. + aR * (TT - 20.)); }
+
+real Hs = H0;
+problem em(A, wa) = int2d(Th)(nuA * (dx(A) * dx(wa) + dy(A) * dy(wa)) + 1i * omega * sigA * A * wa)
+                  - int1d(Th, 4)(Hs * wa) + on(2, A = 0);
+real hs;
+problem heat(T, w) = int2d(Th)(rhocp * T * w / dt + kth * (dx(T) * dx(w) + dy(T) * dy(w)))
+                   - int2d(Th)(rhocp * Told * w / dt + p * w)
+                   + int1d(Th, 4)(hs * T * w) - int1d(Th, 4)(hs * Tamb * w);
+
+ofstream f(out); f.precision(10); f << "t,x,T,p,Tmax\n";
+ofstream fe(eout); fe.precision(12); fe << "t,Ejoule,Estored,Eloss,Tsurf,Psurf\n";
+int nsteps = ceil(tend / dt);
+dt = tend / nsteps;
+int every = max(1, nsteps / nout);
+real Ej = 0, El = 0;
+for (int n = 1; n <= nsteps; n++) {
+  real t = n * dt;
+  bool on = (t - 0.5 * dt) < theat;
+  if (on) {
+    Hs = H0;
+    nuA = 1. / (mu0 * murT(T)); sigA = sigT(T);
+    em;
+    Ah pa = 0.5 * sigA * omega^2 * (real(A)^2 + imag(A)^2);
+    p = pa;
+    hs = hheat;
+  } else {
+    p = 0; hs = hq;
+  }
+  Told = T;
+  heat;
+  Tmax = max(Tmax, T);
+  real Ps = int2d(Th)(p) / H;
+  Ej += dt * Ps;
+  El += dt * int1d(Th, 4)(hs * (T - Tamb)) / H;
+  real Es = int2d(Th)(rhocp * (T - T0)) / H;
+  fe << t << "," << Ej << "," << Es << "," << El << "," << T(0, 0) << "," << Ps << "\n";
+  if (n % every == 0 || n == nsteps)
+    for (int i = 0; i < Th.nv; i++)
+      if (Th(i).y < 0.5 * H) f << t << "," << Th(i).x << "," << T[][i] << "," << p[][i] << "," << Tmax[][i] << "\n";
+}

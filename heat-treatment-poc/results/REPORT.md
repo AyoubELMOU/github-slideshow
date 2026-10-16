@@ -49,9 +49,48 @@ Time exponent of case depth (β = 2e-7): 0.533 (ideal diffusion: 0.5). Acceptanc
 No datasets in `data/published/` yet. See `data/published/README.md` for the format and
 candidate open-access sources.
 
+## Milestone 2: carbonitriding and coupled induction heating
+
+### Verification
+
+| Case | Error | Tolerance | Result |
+|---|---|---|---|
+| V6 stage split invariance | 0.00e+00 | 1e-10 | PASS |
+| V7 C + N co-diffusion vs analytical | 9.07e-05 | 0.001 | PASS |
+| V8 C + N mass conservation (boost/diffuse) | 0.00e+00 | 1e-08 | PASS |
+| V9 cross-code consistency | 0.00e+00 | 1e-10 | PASS |
+| V10 induction surface power vs analytical | 2.72e-04 | 0.001 | PASS |
+| V11 coupled energy conservation | 6.70e-12 | 1e-08 | PASS |
+| V12 coupled time convergence | observed order 1.02 | 0.9 | PASS |
+
+![verification m2](verification_m2.png)
+
+### Process demonstrations (model only, not yet validated against measurements)
+
+Assumed inputs (to be replaced by measured / OpenFOAM / OpenCalphad data): carbon and nitrogen
+potentials, β_N = 1e-7 m/s, induction properties μr = 20 below Curie (760 °C), σ(T) linear in
+resistivity, k = 30 W/m K, ρcp = 4 MJ/m³K, spray-quench h = 2e4 W/m²K. Nitrogen diffusivity:
+Grieveson & Turkdogan (1964); C-N thermodynamic interaction not yet included.
+
+**Carbonitriding** (3 h at 860 °C + 1 h at 860 °C): surface C = 0.78 wt%, N = 0.24 wt%, case depth (C + N ≥ 0.35 wt%) = 0.58 mm.
+
+![carbonitriding](process_carbonitriding.png)
+
+**Induction hardening** (42CrMo4, Andrews Ac1 = 740 °C, Ac3 = 762 °C, equal cold surface power 8 MW/m², 3 s heating):
+
+| Frequency | Hardened depth, peak T ≥ Ac3 [mm] | ≥ Ac3 + 100 °C [mm] | Peak surface T [°C] | Joule energy [MJ/m²] |
+|---|---|---|---|---|
+| 10kHz | 3.95 | 3.11 | 1045 | 26.2 |
+| 30kHz | 2.95 | 2.03 | 971 | 22.7 |
+| 100kHz | 2.08 | 1.09 | 915 | 20.1 |
+
+![induction](process_induction.png)
+
+![comparison](process_comparison.png)
+
 ## PINN (hybrid layer)
 
-Forward: max error vs analytical 0.27 % of range (tolerance 3 %) → **PASS**. Training 250 s on CPU (20000 steps); inference 1.75 ms for a 301-point profile.
+Forward: max error vs analytical 0.27 % of range (tolerance 3 %) → **PASS**. Training 256 s on CPU (20000 steps); inference 1.82 ms for a 301-point profile.
 
 | t [h] | PINN vs analytical | FreeFEM vs analytical |
 |---|---|---|
