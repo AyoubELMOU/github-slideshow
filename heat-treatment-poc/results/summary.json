@@ -1,0 +1,215 @@
+{
+  "verification": {
+    "V1 diffusion, Dirichlet (erfc)": {
+      "error": 6.562621214969977e-05,
+      "tol": 0.001,
+      "passed": true
+    },
+    "V2 diffusion, Robin (mass transfer)": {
+      "error": 9.070698007138112e-05,
+      "tol": 0.001,
+      "passed": true
+    },
+    "V3 eddy current (below curie)": {
+      "error": 2.084496951427516e-06,
+      "tol": 0.001,
+      "passed": true
+    },
+    "V3 eddy current (above curie)": {
+      "error": 2.084496954032858e-06,
+      "tol": 0.001,
+      "passed": true
+    },
+    "V4 quench, convective surface": {
+      "error": 0.0001830999505097645,
+      "tol": 0.001,
+      "passed": true
+    },
+    "V5 convergence (V2, dt ~ h^2)": {
+      "h_m": [
+        0.0002,
+        0.0001,
+        5e-05,
+        2.5e-05,
+        1.25e-05
+      ],
+      "error": [
+        0.0034947444858697205,
+        0.0010235465958697426,
+        0.0002753548408697404,
+        7.120740336971632e-05,
+        1.8100669040427286e-05
+      ],
+      "orders": [
+        1.7716101974934624,
+        1.8942129039201427,
+        1.9511928221714678,
+        1.9759842212292253
+      ],
+      "tol": 1.8,
+      "passed": true
+    }
+  },
+  "validation_harris": {
+    "beta=1e-07": {
+      "rows": [
+        {
+          "t_h": 2,
+          "surface_c": 0.797256290092,
+          "depth_total_mm": 0.7223076789369952,
+          "depth_0p4_mm": 0.4326933040632755,
+          "harris_mm": 0.8986107883315694,
+          "rel_diff": -0.19619518448238554
+        },
+        {
+          "t_h": 4,
+          "surface_c": 0.847424148588,
+          "depth_total_mm": 1.069076779753487,
+          "depth_0p4_mm": 0.66881355919741,
+          "harris_mm": 1.2708275641532838,
+          "rel_diff": -0.15875543629258432
+        },
+        {
+          "t_h": 8,
+          "surface_c": 0.887594464863,
+          "depth_total_mm": 1.5685076062841143,
+          "depth_0p4_mm": 1.0116566612349647,
+          "harris_mm": 1.7972215766631388,
+          "rel_diff": -0.12725975102283857
+        },
+        {
+          "t_h": 16,
+          "surface_c": 0.918464833772,
+          "depth_total_mm": 2.283978568376751,
+          "depth_0p4_mm": 1.505070816388123,
+          "harris_mm": 2.5416551283065676,
+          "rel_diff": -0.1013814018511234
+        }
+      ],
+      "sqrt_t_exponent": 0.5535618156822033,
+      "max_rel_diff": 0.19619518448238554
+    },
+    "beta=2e-07": {
+      "rows": [
+        {
+          "t_h": 2,
+          "surface_c": 0.887388600706,
+          "depth_total_mm": 0.7848186071249322,
+          "depth_0p4_mm": 0.5052521228527198,
+          "harris_mm": 0.8986107883315694,
+          "rel_diff": -0.1266312208624966
+        },
+        {
+          "t_h": 4,
+          "surface_c": 0.918387182041,
+          "depth_total_mm": 1.1423699348951055,
+          "depth_0p4_mm": 0.7521412205889736,
+          "harris_mm": 1.2708275641532838,
+          "rel_diff": -0.10108187206638529
+        },
+        {
+          "t_h": 8,
+          "surface_c": 0.941441087746,
+          "depth_total_mm": 1.6526083470666613,
+          "depth_0p4_mm": 1.1050373821746424,
+          "harris_mm": 1.7972215766631388,
+          "rel_diff": -0.08046488617445693
+        },
+        {
+          "t_h": 16,
+          "surface_c": 0.958244638938,
+          "depth_total_mm": 2.3779917517324263,
+          "depth_0p4_mm": 1.6074183913307496,
+          "harris_mm": 2.5416551283065676,
+          "rel_diff": -0.0643924404815635
+        }
+      ],
+      "sqrt_t_exponent": 0.5330652621776195,
+      "max_rel_diff": 0.1266312208624966
+    },
+    "beta=5e-07": {
+      "rows": [
+        {
+          "t_h": 2,
+          "surface_c": 0.952774986016,
+          "depth_total_mm": 0.8367125959201583,
+          "depth_0p4_mm": 0.5625103087978052,
+          "harris_mm": 0.8986107883315694,
+          "rel_diff": -0.06888209357728281
+        },
+        {
+          "t_h": 4,
+          "surface_c": 0.966451422532,
+          "depth_total_mm": 1.199990287627563,
+          "depth_0p4_mm": 0.8146056042497452,
+          "harris_mm": 1.2708275641532838,
+          "rel_diff": -0.05574106080467153
+        },
+        {
+          "t_h": 8,
+          "surface_c": 0.976215257972,
+          "depth_total_mm": 1.715340982896083,
+          "depth_0p4_mm": 1.171912971225962,
+          "harris_mm": 1.7972215766631388,
+          "rel_diff": -0.04555954303591301
+        },
+        {
+          "t_h": 16,
+          "surface_c": 0.98315707473,
+          "depth_total_mm": 2.445076471056357,
+          "depth_0p4_mm": 1.677861932537301,
+          "harris_mm": 2.5416551283065676,
+          "rel_diff": -0.03799833272996339
+        }
+      ],
+      "sqrt_t_exponent": 0.5156699245394706,
+      "max_rel_diff": 0.06888209357728281
+    },
+    "passed": true,
+    "tol": 0.2
+  },
+  "validation_published": [],
+  "pinn_forward": {
+    "errors": {
+      "0.5": {
+        "pinn_vs_analytical": 0.0015760248200757943,
+        "freefem_vs_analytical": 0.0006499746346352864
+      },
+      "1": {
+        "pinn_vs_analytical": 0.0026915299363811096,
+        "freefem_vs_analytical": 0.00034417851695361934
+      },
+      "2": {
+        "pinn_vs_analytical": 0.0016149882950208805,
+        "freefem_vs_analytical": 0.00017801049431775962
+      },
+      "4": {
+        "pinn_vs_analytical": 0.002394487912527332,
+        "freefem_vs_analytical": 9.070698007138112e-05
+      }
+    },
+    "train_s": 249.57404160499573,
+    "steps": 20000,
+    "max_error": 0.0026915299363811096,
+    "tol": 0.03,
+    "passed": true,
+    "inference_ms_301_points": 1.7529869079589844
+  },
+  "pinn_inverse": {
+    "D_true": 1.5e-11,
+    "beta_true": 2e-07,
+    "D_initial": 7.5e-12,
+    "beta_initial": 6e-07,
+    "D_identified": 1.5455294633284212e-11,
+    "beta_identified": 1.8725339971229124e-07,
+    "rel_error": {
+      "D": 0.030352975552280788,
+      "beta": 0.06373300143854375
+    },
+    "train_s": 226.2187898159027,
+    "steps": 20000,
+    "tol": 0.15,
+    "data": "synthetic: FreeFEM + 1 % Gaussian noise, 3 times x 12 depths",
+    "passed": true
+  }
+}

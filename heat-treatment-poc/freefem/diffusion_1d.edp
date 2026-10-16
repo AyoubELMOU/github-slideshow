@@ -1,0 +1,84 @@
+// 1D transient diffusion into a semi-infinite slab (surface at x = 0).
+// Solves dc/dt = d/dx( D(c) dc/dx ) on a one-element-thick strip (natural BCs on y faces).
+//
+// Used for:
+//   - interstitial (C, N) diffusion during carburizing / carbonitriding
+//   - heat conduction during quenching (c -> T, D -> alpha, beta -> h/(rho*cp))
+//
+// Surface boundary condition (label 4, x = 0):
+//   -beta < 0 : Dirichlet  c(0,t) = cs
+//   -beta > 0 : Robin      -D dc/dx = beta (cs - c)   (mass / heat transfer coefficient)
+// Back face (label 2, x = L): zero flux.
+//
+// Diffusivity models:
+//   -dmodel const    : D = -D
+//   -dmodel tibbetts : carbon in austenite, Tibbetts (1980), D(c, T) with c in wt%
+//
+// Time integration: implicit Euler, Picard iterations on D(c).
+// Output CSV (t, x, c) at -nout equally spaced times (always includes t_end).
+
+include "args.idp"
+
+real L      = argReal("-L", 5e-3);       // domain depth [m]
+int  nx     = argReal("-nx", 400);       // elements through depth
+real dt     = argReal("-dt", 10.);       // time step [s]
+real tend   = argReal("-tend", 14400.);  // end time [s]
+real c0     = argReal("-c0", 0.2);       // initial value
+real cs     = argReal("-cs", 1.0);       // surface value (Dirichlet) or potential (Robin)
+real beta   = argReal("-beta", -1.);     // transfer coefficient [m/s]; < 0 -> Dirichlet
+string dmodel = argStr("-dmodel", "const");
+real D0     = argReal("-D", 1e-11);      // constant diffusivity [m^2/s]
+real TK     = argReal("-T", 1200.);      // temperature [K] for D(c, T)
+int  npicard = argReal("-picard", 3);
+int  nout   = argReal("-nout", 1);
+string out  = argStr("-out", "profile.csv");
+
+// Tibbetts, J. Appl. Phys. 51 (1980) 4813: D = 0.47 exp(-1.6 C) exp(-(37000 - 6600 C)/(R T)) cm^2/s
+func real Dtib(real cc) {
+  real C = max(cc, 0.);
+  return 0.47e-4 * exp(-1.6 * C) * exp(-(37000. - 6600. * C) / (1.98720 * TK));
+}
+
+real H = L / nx;
+mesh Th = square(nx, 1, [L * x, H * y]);
+fespace Vh(Th, P1);
+Vh c, cold, cit, w, Dh;
+
+int nsteps = ceil(tend / dt);
+dt = tend / nsteps;
+c = c0;
+if (beta < 0) c = (x < 1e-14 ? cs : c0);
+
+macro grad(u) [dx(u), dy(u)] //
+
+problem stepD(c, w) =
+    int2d(Th)(c * w / dt + Dh * (grad(c)' * grad(w)))
+  - int2d(Th)(cold * w / dt)
+  + on(4, c = cs);
+
+problem stepR(c, w) =
+    int2d(Th)(c * w / dt + Dh * (grad(c)' * grad(w)))
+  - int2d(Th)(cold * w / dt)
+  + int1d(Th, 4)(beta * c * w)
+  - int1d(Th, 4)(beta * cs * w);
+
+ofstream f(out);
+f.precision(12);
+f << "t,x,c\n";
+
+int every = max(1, nsteps / nout);
+for (int n = 1; n <= nsteps; n++) {
+  cold = c;
+  cit = c;
+  int np = (dmodel == "tibbetts") ? npicard : 1;
+  for (int k = 0; k < np; k++) {
+    if (dmodel == "tibbetts") Dh = Dtib(cit); else Dh = D0;
+    if (beta < 0) stepD; else stepR;
+    cit = c;
+  }
+  if (n % every == 0 || n == nsteps) {
+    real t = n * dt;
+    for (int i = 0; i < Th.nv; i++)
+      if (Th(i).y < 0.5 * H) f << t << "," << Th(i).x << "," << c[][i] << "\n";
+  }
+}

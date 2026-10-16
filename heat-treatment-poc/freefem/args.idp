@@ -1,0 +1,11 @@
+// Minimal command-line parsing: FreeFem++ -nw script.edp -key value ...
+func real argReal(string key, real def) {
+  real v = def;
+  for (int i = 0; i < ARGV.n - 1; i++) if (ARGV[i] == key) v = atof(ARGV[i+1]);
+  return v;
+}
+func string argStr(string key, string def) {
+  string v = def;
+  for (int i = 0; i < ARGV.n - 1; i++) if (ARGV[i] == key) v = ARGV[i+1];
+  return v;
+}

@@ -1,0 +1,30 @@
+name: heat-treatment-poc
+
+on:
+  push:
+    paths: ["heat-treatment-poc/**", ".github/workflows/heat-treatment-poc.yml"]
+  pull_request:
+    paths: ["heat-treatment-poc/**", ".github/workflows/heat-treatment-poc.yml"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: heat-treatment-poc
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FreeFEM
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends freefem++
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Regression tests (FreeFEM vs analytical, data pipeline)
+        run: python -m pytest -q tests
+      - name: Verification & validation report (no PINN)
+        run: python scripts/run_all.py --skip-pinn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vv-report
+          path: heat-treatment-poc/results/

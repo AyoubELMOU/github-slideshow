@@ -1,0 +1,43 @@
+// 1D time-harmonic eddy-current problem (magnetic vector potential A_z) in a conductor.
+//   d2A/dx2 = i omega mu sigma A   on (0, L)
+//   A(0) = A0 (imposed by the inductor),  A(L) = 0
+// Exact solution: A = A0 sinh(k (L - x)) / sinh(k L),  k = (1 + i) / delta,
+//   delta = sqrt(2 / (omega mu sigma))  (skin depth).
+// Joule power density: p = 0.5 sigma omega^2 |A|^2.
+// This is the induction-heating kernel; the full model adds mu(T), sigma(T) and coupling to heat.
+
+include "args.idp"
+
+real L     = argReal("-L", 2e-3);
+int  nx    = argReal("-nx", 200);
+real freq  = argReal("-freq", 10e3);
+real sigma = argReal("-sigma", 1e6);
+real mur   = argReal("-mur", 1.);
+real A0    = argReal("-A0", 1.);
+string out = argStr("-out", "eddy.csv");
+
+real mu0 = 4e-7 * pi;
+real omega = 2 * pi * freq;
+real mu = mur * mu0;
+
+real H = L / nx;
+mesh Th = square(nx, 1, [L * x, H * y]);
+fespace Vh(Th, P2);
+Vh<complex> A, w;
+
+problem eddy(A, w) =
+    int2d(Th)(dx(A) * dx(w) + dy(A) * dy(w))
+  + int2d(Th)(1i * omega * mu * sigma * A * w)
+  + on(4, A = A0) + on(2, A = 0);
+eddy;
+
+fespace Wh(Th, P1);
+Wh ar = real(A), ai = imag(A);
+ofstream f(out);
+f.precision(12);
+f << "x,Are,Aim,p\n";
+for (int i = 0; i < Th.nv; i++)
+  if (Th(i).y < 0.5 * H) {
+    real a2 = ar[][i]^2 + ai[][i]^2;
+    f << Th(i).x << "," << ar[][i] << "," << ai[][i] << "," << 0.5 * sigma * omega^2 * a2 << "\n";
+  }
