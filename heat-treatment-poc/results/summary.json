@@ -597,6 +597,265 @@
       }
     }
   },
+  "verification_m3": {
+    "V13 thermo-elastic plate vs analytical": {
+      "error": 6.250000000124581e-06,
+      "tol": 0.0001,
+      "passed": true
+    },
+    "V14 uniform history gives zero stress": {
+      "error": 0.0,
+      "tol": 1e-10,
+      "passed": true
+    },
+    "V15 equilibrium (all chains)": {
+      "error": 1.3505486947062316e-14,
+      "tol": 1e-10,
+      "passed": true
+    },
+    "V16 yield consistency (all chains)": {
+      "error": 0.0,
+      "tol": 1e-06,
+      "passed": true
+    },
+    "V17 mesh sensitivity of process outputs": {
+      "error": 0.0011058543843856165,
+      "tol": 0.02,
+      "passed": true,
+      "metrics": {
+        "carbonitriding": {
+          "surface_sigma_MPa": {
+            "nx": -536.4361678959563,
+            "nx2": -536.4370770436541,
+            "rel": 1.6947890754232665e-06
+          },
+          "max_tensile_MPa": {
+            "nx": 229.12914862869647,
+            "nx2": 229.2754286688686,
+            "rel": 0.0006380101043597173
+          },
+          "surface_hv": {
+            "nx": 682.3816694587613,
+            "nx2": 682.381576604901,
+            "rel": 1.3607322267670607e-07
+          },
+          "chd550_mm": {
+            "nx": 0.6665274843516914,
+            "nx2": 0.6657912162161533,
+            "rel": 0.0011058543843856165
+          }
+        },
+        "induction": {
+          "surface_sigma_MPa": {
+            "nx": -548.2720544563055,
+            "nx2": -548.486994735736,
+            "rel": 0.00039187853402805427
+          },
+          "max_tensile_MPa": {
+            "nx": 616.4988595385475,
+            "nx2": 616.5274590046721,
+            "rel": 4.638798435793604e-05
+          },
+          "surface_hv": {
+            "nx": 696.1196153226241,
+            "nx2": 696.1201487430872,
+            "rel": 7.662764309010414e-07
+          },
+          "chd550_mm": {
+            "nx": 2.261198104914262,
+            "nx2": 2.2609335490521776,
+            "rel": 0.0001170117813481559
+          }
+        }
+      }
+    }
+  },
+  "chains": {
+    "carbonitriding": {
+      "surface_hv": 682.3816694587613,
+      "core_hv": 456.98627680412716,
+      "surface_ra_pct": 27.484138857127547,
+      "max_ra_pct": 27.484138857127547,
+      "surface_sigma_MPa": -536.4361678959563,
+      "min_sigma_MPa": -665.8118799655934,
+      "max_tensile_MPa": 229.12914862869647,
+      "max_tensile_depth_mm": 1.2,
+      "equilibrium_residual": 1.3505486947062316e-14,
+      "yield_violation_MPa": -1076.6158391538565,
+      "T_final_spread_C": 0.0,
+      "chd550_mm": 0.6665274843516914,
+      "shd_mm": 0.6750218790538908,
+      "description": "carbonitriding (20MnCr5)"
+    },
+    "induction": {
+      "surface_hv": 696.1196153226241,
+      "core_hv": 300.0,
+      "surface_ra_pct": 3.447312777967959,
+      "max_ra_pct": 3.454051744028974,
+      "surface_sigma_MPa": -548.2720544563055,
+      "min_sigma_MPa": -573.6337795469027,
+      "max_tensile_MPa": 616.4988595385475,
+      "max_tensile_depth_mm": 5.5125,
+      "equilibrium_residual": 6.680921941936609e-15,
+      "yield_violation_MPa": -69.11125631645245,
+      "T_final_spread_C": 1.0129062100000006,
+      "chd550_mm": 2.261198104914262,
+      "shd_mm": 2.2583357914233417,
+      "description": "induction 30 kHz, 2 s (42CrMo4)"
+    }
+  },
+  "sensitivity_m3": [
+    {
+      "process": "carbonitriding",
+      "param": "K_trip [1/MPa]",
+      "value": 0.0,
+      "surface_sigma_MPa": -1613.0520070498128,
+      "max_tensile_MPa": 244.90140748217635,
+      "surface_hv": 682.3816694587613,
+      "surface_ra_pct": 27.484138857127547,
+      "depth_mm": 0.6665274843516914
+    },
+    {
+      "process": "carbonitriding",
+      "param": "K_trip [1/MPa]",
+      "value": 5e-05,
+      "surface_sigma_MPa": -536.4361678959563,
+      "max_tensile_MPa": 229.12914862869647,
+      "surface_hv": 682.3816694587613,
+      "surface_ra_pct": 27.484138857127547,
+      "depth_mm": 0.6665274843516914
+    },
+    {
+      "process": "carbonitriding",
+      "param": "K_trip [1/MPa]",
+      "value": 0.0001,
+      "surface_sigma_MPa": -308.9692971760416,
+      "max_tensile_MPa": 138.61430543330206,
+      "surface_hv": 682.3816694587613,
+      "surface_ra_pct": 27.484138857127547,
+      "depth_mm": 0.6665274843516914
+    },
+    {
+      "process": "carbonitriding",
+      "param": "oil HTC [W/m2K]",
+      "value": 1000.0,
+      "surface_sigma_MPa": -533.6167128210544,
+      "max_tensile_MPa": 143.18861812014882,
+      "surface_hv": 673.978900742823,
+      "surface_ra_pct": 27.484138857127547,
+      "depth_mm": 0.6468937507662583
+    },
+    {
+      "process": "carbonitriding",
+      "param": "oil HTC [W/m2K]",
+      "value": 2000.0,
+      "surface_sigma_MPa": -536.4361678959563,
+      "max_tensile_MPa": 229.12914862869647,
+      "surface_hv": 682.3816694587613,
+      "surface_ra_pct": 27.484138857127547,
+      "depth_mm": 0.6665274843516914
+    },
+    {
+      "process": "carbonitriding",
+      "param": "oil HTC [W/m2K]",
+      "value": 4000.0,
+      "surface_sigma_MPa": -541.9710972486394,
+      "max_tensile_MPa": 311.8056570794797,
+      "surface_hv": 695.1244882265021,
+      "surface_ra_pct": 27.484138857127547,
+      "depth_mm": 0.6860494524310601
+    },
+    {
+      "process": "induction",
+      "param": "K_trip [1/MPa]",
+      "value": 0.0,
+      "surface_sigma_MPa": -1321.3682752191637,
+      "max_tensile_MPa": 620.9383186937907,
+      "surface_hv": 696.1196153226241,
+      "surface_ra_pct": 3.447312777967959,
+      "depth_mm": 2.261198104914262
+    },
+    {
+      "process": "induction",
+      "param": "K_trip [1/MPa]",
+      "value": 5e-05,
+      "surface_sigma_MPa": -548.2720544563055,
+      "max_tensile_MPa": 616.4988595385475,
+      "surface_hv": 696.1196153226241,
+      "surface_ra_pct": 3.447312777967959,
+      "depth_mm": 2.261198104914262
+    },
+    {
+      "process": "induction",
+      "param": "K_trip [1/MPa]",
+      "value": 0.0001,
+      "surface_sigma_MPa": -418.3690534836403,
+      "max_tensile_MPa": 614.6616001511419,
+      "surface_hv": 696.1196153226241,
+      "surface_ra_pct": 3.447312777967959,
+      "depth_mm": 2.261198104914262
+    },
+    {
+      "process": "induction",
+      "param": "Ac shift [C]",
+      "value": 0.0,
+      "surface_sigma_MPa": -548.2720544563055,
+      "max_tensile_MPa": 616.4988595385475,
+      "surface_hv": 696.1196153226241,
+      "surface_ra_pct": 3.447312777967959,
+      "depth_mm": 2.261198104914262
+    },
+    {
+      "process": "induction",
+      "param": "Ac shift [C]",
+      "value": 50.0,
+      "surface_sigma_MPa": -567.2613112294097,
+      "max_tensile_MPa": 613.8364068485962,
+      "surface_hv": 696.1196153226241,
+      "surface_ra_pct": 3.447312777967959,
+      "depth_mm": 1.8910926109763415
+    },
+    {
+      "process": "induction",
+      "param": "Ac shift [C]",
+      "value": 100.0,
+      "surface_sigma_MPa": -588.7252635932023,
+      "max_tensile_MPa": 613.354230450929,
+      "surface_hv": 696.1196153226241,
+      "surface_ra_pct": 3.447312777967959,
+      "depth_mm": 1.4517589255683265
+    },
+    {
+      "process": "induction",
+      "param": "spray HTC [W/m2K]",
+      "value": 10000.0,
+      "surface_sigma_MPa": -581.8285879975879,
+      "max_tensile_MPa": 614.7200078780918,
+      "surface_hv": 683.5372468989908,
+      "surface_ra_pct": 3.4605057010490325,
+      "depth_mm": 2.260553992805713
+    },
+    {
+      "process": "induction",
+      "param": "spray HTC [W/m2K]",
+      "value": 20000.0,
+      "surface_sigma_MPa": -548.2720544563055,
+      "max_tensile_MPa": 616.4988595385475,
+      "surface_hv": 696.1196153226241,
+      "surface_ra_pct": 3.447312777967959,
+      "depth_mm": 2.261198104914262
+    },
+    {
+      "process": "induction",
+      "param": "spray HTC [W/m2K]",
+      "value": 40000.0,
+      "surface_sigma_MPa": -491.27571714690004,
+      "max_tensile_MPa": 616.6813155746221,
+      "surface_hv": 699.6930936287905,
+      "surface_ra_pct": 3.4441805794292457,
+      "depth_mm": 2.2619004691360898
+    }
+  ],
   "pinn_forward": {
     "errors": {
       "0.5": {
@@ -616,12 +875,12 @@
         "freefem_vs_analytical": 9.070698007138112e-05
       }
     },
-    "train_s": 256.25406193733215,
+    "train_s": 268.71341490745544,
     "steps": 20000,
     "max_error": 0.0026915299363811096,
     "tol": 0.03,
     "passed": true,
-    "inference_ms_301_points": 1.8178844451904297
+    "inference_ms_301_points": 2.5222015380859375
   },
   "pinn_inverse": {
     "D_true": 1.5e-11,
@@ -634,7 +893,7 @@
       "D": 0.030352975552280788,
       "beta": 0.06373300143854375
     },
-    "train_s": 231.58520412445068,
+    "train_s": 236.45128798484802,
     "steps": 20000,
     "tol": 0.15,
     "data": "synthetic: FreeFEM + 1 % Gaussian noise, 3 times x 12 depths",

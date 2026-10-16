@@ -129,3 +129,52 @@ def test_v11_energy_conservation():
 def test_andrews_42crmo4():
     ac1, ac3 = mat.andrews_ac1_ac3(mat.STEELS["42CrMo4"])
     assert 700 < ac1 < ac3 < 850
+
+
+# ---------------------------------------------------------------- milestone 3
+
+from hybridht import mechanics as mech  # noqa: E402
+from hybridht import metallurgy as metal  # noqa: E402
+
+
+def test_v13_thermoelastic_plate():
+    assert cases.v13_thermoelastic_plate()["err"] < 1e-4
+
+
+def test_v14_uniform_history_zero_stress():
+    assert cases.v14_uniform_fields()["err"] < 1e-10
+
+
+def test_ms_models():
+    c = mat.STEELS["42CrMo4"]
+    # Both formulas agree for medium carbon; van Bohemen stays physical at high carbon.
+    assert abs(metal.ms_andrews(c) - metal.ms_van_bohemen(c)) < 10
+    assert metal.ms_van_bohemen(mat.STEELS["20MnCr5"], 1.0) > 100 > metal.ms_andrews(mat.STEELS["20MnCr5"], 1.0)
+
+
+def test_koistinen_marburger_and_retained_austenite():
+    t = np.linspace(0, 10, 101)
+    T = np.linspace(900, 20, 101)[:, None]
+    comp = mat.STEELS["42CrMo4"]
+    ph = metal.phase_history(t, T, comp, 740.0, 790.0)
+    Ms = metal.ms_van_bohemen(comp)
+    assert ph["aus"][-1, 0] == pytest.approx(np.exp(-metal.KM_ALPHA * (Ms - 20.0)), rel=1e-9)
+    assert ph["mart"][-1, 0] + ph["aus"][-1, 0] == pytest.approx(1.0)
+
+
+def test_trip_strain_full_transformation():
+    """Equi-biaxial Leblond TRIP, d eps = K sigma (1 - f) df, integrates to K sigma / 2 at f = 1
+    (the uniaxial form, 3/2 K s Phi'(f) df with s = 2 sigma / 3, gives K sigma)."""
+    K, s, n = 5e-5, 100.0, 20000
+    f = np.linspace(0, 1, n + 1)
+    eps = np.sum(K * s * (1 - f[:-1]) * np.diff(f))
+    assert eps == pytest.approx(K * s / 2, rel=1e-3)
+
+
+@needs_ff
+def test_carbonitriding_chain_regression():
+    r = cases.chain_carbonitriding(q=dict(cases.CN_QUENCH, nx=100))
+    s = cases.summarize_chain(r)
+    assert s["equilibrium_residual"] < 1e-10 and s["yield_violation_MPa"] <= 1e-6
+    assert s["surface_sigma_MPa"] < 0 < s["max_tensile_MPa"]          # compressive case, tensile core
+    assert 10 < s["surface_ra_pct"] < 50

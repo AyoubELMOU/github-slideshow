@@ -37,7 +37,8 @@ plt.rcParams.update({
 
 # Acceptance criteria (agreed up front; see README).
 TOL = dict(profile=1e-3, eddy=1e-3, skin=1e-3, order_min=1.8, harris=0.20, pinn_fwd=0.03, pinn_inv=0.15,
-           exact=1e-10, conservation=1e-8, em_power=1e-3, order_min_coupled=0.9)
+           exact=1e-10, conservation=1e-8, em_power=1e-3, order_min_coupled=0.9,
+           stress_rel=1e-4, equilibrium=1e-10, yield_MPa=1e-6, mesh_rel=0.02)
 C4 = "#6250d6"
 
 
@@ -241,6 +242,85 @@ def processes(summary):
               for f, r in ih["runs"].items()})
 
 
+def milestone3(summary, slow=True):
+    v13, v14 = cases.v13_thermoelastic_plate(), cases.v14_uniform_fields()
+    cn, ih = cases.chain_carbonitriding(), cases.chain_induction()
+    v15, v16 = cases.chain_checks([cn, ih])
+    checks = {v13["name"]: (v13["err"], TOL["stress_rel"]), v14["name"]: (v14["err"], TOL["exact"]),
+              v15["name"]: (v15["err"], TOL["equilibrium"]), v16["name"]: (v16["err"], TOL["yield_MPa"])}
+    if slow:
+        v17 = cases.v17_mesh_sensitivity()
+        checks[v17["name"]] = (v17["err"], TOL["mesh_rel"])
+    summary["verification_m3"] = {k: dict(error=e_, tol=t, passed=bool(e_ <= t)) for k, (e_, t) in checks.items()}
+    if slow:
+        summary["verification_m3"][v17["name"]]["metrics"] = v17["metrics"]
+    summary["chains"] = {"carbonitriding": dict(cases.summarize_chain(cn), description=cn["name"]),
+                         "induction": dict(cases.summarize_chain(ih), description=ih["name"])}
+
+    fig, ax = plt.subplots(1, 3, figsize=(11, 3.7))
+    for r, col, lab in ((cn, C3, "carbonitriding, 20MnCr5"), (ih, C1, "induction 30 kHz, 42CrMo4")):
+        z = r["z"] * 1e3
+        ax[0].plot(z, r["hv"], color=col, label=lab)
+        ax[1].plot(z, 100 * r["ra"], color=col, label=lab)
+        ax[2].plot(z, r["sigma_res"], color=col, label=lab)
+    ax[0].axhline(550, color=REF, ls=":", lw=1)
+    ax[0].text(7.9, 560, "550 HV", ha="right", color=REF, fontsize=8)
+    ax[0].set(title="Hardness (as quenched)", xlabel="depth [mm]", ylabel="hardness [HV]", xlim=(0, 8))
+    ax[1].set(title="Retained austenite", xlabel="depth [mm]", ylabel="retained austenite [%]", xlim=(0, 8), ylim=(0, None))
+    ax[2].axhline(0, color=REF, lw=1)
+    ax[2].set(title="In-plane residual stress", xlabel="depth [mm]", ylabel="stress [MPa]", xlim=(0, 10))
+    ax[0].legend(fontsize=7.5)
+    fig.suptitle("Model-only comparison (assumed properties; not yet validated against measurements)", fontsize=9, color=REF)
+    save(fig, "process_m3_profiles.png")
+
+    fig, ax = plt.subplots(1, 2, figsize=(9.5, 3.7))
+    for a, r, col, title in ((ax[0], cn, C3, "Carbonitriding: oil quench + air cool"),
+                             (ax[1], ih, C1, "Induction: 2 s heating + spray quench")):
+        t = np.maximum(r["t"], 1e-2)
+        i_pk = int(np.argmax(r["sigma_res"]))
+        a.plot(t, r["mech"]["sigma"][:, 0], color=col, label="surface")
+        a.plot(t, r["mech"]["sigma"][:, i_pk], color=C2, label=f"{r['z'][i_pk]*1e3:.1f} mm (final tensile peak)")
+        a.axhline(0, color=REF, lw=1)
+        a.set_xscale("log")
+        a.set(title=title, xlabel="time [s]", ylabel="stress [MPa]")
+        a.legend(fontsize=7.5)
+    save(fig, "process_m3_stress_history.png")
+
+    if slow:
+        summary["sensitivity_m3"] = cases.sensitivity_m3()
+
+
+def report_m3(summary, L):
+    L += ["", "## Milestone 3: phases, hardness, retained austenite, residual stress", "",
+          "Chain: diffusion (C + N) or induction heating → quench heat transfer → austenitization (lever rule",
+          "Ac1–Ac3, Andrews) → martensite (Koistinen–Marburger, Ms by van Bohemen 2012 with C + N) → hardness",
+          "(Maynier 1978 for martensite, rule of mixtures) → equi-biaxial elasto-plastic layer model with",
+          "phase-specific volumes (Moyer & Ansell 1975) and TRIP. Not modelled yet: diffusional",
+          "transformations on cooling (needs CCT data), tempering, C–N interaction.", "",
+          "### Verification", "", "| Case | Error | Tolerance | Result |", "|---|---|---|---|"]
+    for k, v in summary["verification_m3"].items():
+        L.append(f"| {k} | {v['error']:.2e} | {v['tol']} | {'PASS' if v['passed'] else 'FAIL'} |")
+    L += ["", "### Process outputs (model only, assumed properties)", "",
+          "| Output | Carbonitriding (20MnCr5, 4 h 860 °C, oil) | Induction (42CrMo4, 30 kHz 2 s, spray) |", "|---|---|---|"]
+    a, b = summary["chains"]["carbonitriding"], summary["chains"]["induction"]
+    for lab, key, fmt in [("Surface hardness [HV]", "surface_hv", "{:.0f}"), ("Core hardness [HV]", "core_hv", "{:.0f}"),
+                          ("CHD at 550 HV [mm]", "chd550_mm", "{:.2f}"), ("Depth at 0.8 × surface HV [mm]", "shd_mm", "{:.2f}"),
+                          ("Surface retained austenite [%]", "surface_ra_pct", "{:.1f}"),
+                          ("Surface residual stress [MPa]", "surface_sigma_MPa", "{:.0f}"),
+                          ("Most compressive [MPa]", "min_sigma_MPa", "{:.0f}"),
+                          ("Peak tensile [MPa]", "max_tensile_MPa", "{:.0f}"),
+                          ("Depth of tensile peak [mm]", "max_tensile_depth_mm", "{:.2f}")]:
+        L.append(f"| {lab} | {fmt.format(a[key])} | {fmt.format(b[key])} |")
+    L += ["", "![m3 profiles](process_m3_profiles.png)", "", "![m3 stress history](process_m3_stress_history.png)"]
+    if "sensitivity_m3" in summary:
+        L += ["", "### Sensitivity to assumed inputs (one at a time)", "",
+              "| Process | Parameter | Value | Surface σ [MPa] | Peak tensile [MPa] | Surface HV | Surface RA [%] | CHD-550 [mm] |",
+              "|---|---|---|---|---|---|---|---|"]
+        for r in summary["sensitivity_m3"]:
+            L.append(f"| {r['process']} | {r['param']} | {r['value']:g} | {r['surface_sigma_MPa']:.0f} | "
+                     f"{r['max_tensile_MPa']:.0f} | {r['surface_hv']:.0f} | {r['surface_ra_pct']:.1f} | {r['depth_mm']:.2f} |")
+
+
 def validation_published(summary):
     files = published.datasets()
     summary["validation_published"] = []
@@ -411,6 +491,8 @@ def report(summary):
         L.append(f"| {f} | {r['depth_mm']['0.0'][-1]:.2f} | {r['depth_mm']['100.0'][-1]:.2f} | "
                  f"{r['Tsurf_max']:.0f} | {r['E_joule_MJ_m2']:.1f} |")
     L += ["", "![induction](process_induction.png)", "", "![comparison](process_comparison.png)"]
+    if "verification_m3" in summary:
+        report_m3(summary, L)
     if "pinn_forward" in summary:
         pf, pi = summary["pinn_forward"], summary["pinn_inverse"]
         L += ["", "## PINN (hybrid layer)", "",
@@ -436,6 +518,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-pinn", action="store_true")
     ap.add_argument("--pinn-steps", type=int, default=20000)
+    ap.add_argument("--skip-slow", action="store_true", help="skip mesh and sensitivity studies (CI)")
     args = ap.parse_args()
     if not ff.available():
         sys.exit("FreeFem++ not found (set FREEFEM=/path/to/FreeFem++)")
@@ -443,7 +526,8 @@ def main():
     summary = {}
     for name, fn in [("verification", verification), ("validation (Harris)", validation_harris),
                      ("validation (published)", validation_published),
-                     ("verification (milestone 2)", verification_m2), ("process demonstrations", processes)]:
+                     ("verification (milestone 2)", verification_m2), ("process demonstrations", processes),
+                     ("milestone 3", lambda sm: milestone3(sm, slow=not args.skip_slow))]:
         t0 = time.time()
         fn(summary)
         print(f"{name}: {time.time() - t0:.0f} s", flush=True)

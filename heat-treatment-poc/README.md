@@ -47,6 +47,11 @@ one-way parameter chain.
 | V12 | Coupled problem, time-step refinement | observed order | `freefem/induction_heating_1d.edp` |
 | P3 | Boost/diffuse carbonitriding cycle | model only (case depth at C + N = 0.35 wt%) | `hybridht/cases.py` |
 | P4 | Induction hardening of 42CrMo4 at 10/30/100 kHz | model only (peak T ≥ Andrews Ac3) | `hybridht/cases.py` |
+| V13 | Thermo-elastic plate, quadratic temperature | analytical stress | `hybridht/mechanics.py` |
+| V14 | Uniform temperature + transformation history | zero stress (exact) | `hybridht/mechanics.py` |
+| V15–V16 | Full process chains | equilibrium, yield-surface consistency | `hybridht/mechanics.py` |
+| V17 | Process outputs at nx and 2 nx | mesh sensitivity < 2 % | `hybridht/cases.py` |
+| P5 | Carbonitriding vs induction: hardness, retained austenite, residual stress | model only + sensitivity to assumed inputs | `hybridht/metallurgy.py`, `hybridht/mechanics.py` |
 
 Results, plots and the acceptance criteria are in [`results/REPORT.md`](results/REPORT.md).
 
@@ -57,7 +62,7 @@ sudo apt-get install freefem++        # Ubuntu 24.04: FreeFEM 4.13
 pip install -r requirements.txt
 make test     # regression tests, ~10 s
 make verify   # verification + validation report without the PINN, ~2 min
-make all      # including PINN training, ~10 min on a laptop CPU
+make all      # including PINN training, mesh and sensitivity studies, ~35 min on a laptop CPU
 ```
 
 The full toolchain, including OpenFOAM, LAMMPS, Quantum ESPRESSO, OpenCalphad and PRISMS-PF, is
@@ -81,7 +86,8 @@ in `environment/Dockerfile`.
    still missing: C–N thermodynamic interaction.
 3. ~~Coupled induction heating with μ(T), σ(T).~~ Done in 1D (V10–V12, P4); next: axisymmetric, then a
    2D tooth geometry, temperature-dependent k and cp (latent heat), μ(H) saturation.
-4. Phase kinetics (Leblond/JMAK, Koistinen–Marburger with Ms(C, N)) → hardness, then
-   thermo-elasto-plasticity with TRIP → residual stress and distortion.
+4. ~~Phase kinetics → hardness; thermo-elasto-plasticity with TRIP → residual stress.~~ Done for the
+   plate layer model (V13–V17, P5): martensite only, as quenched. Next: diffusional transformations
+   from CCT/JMAK data, tempering, and the FreeFEM 2D tooth model for distortion.
 5. OpenFOAM quench HTC map and OpenCalphad Ms/phase data, once a Fe-C-N-Cr-Mo-Ni TDB is secured.
 6. Neural-operator surrogate over process parameters; factory-side calibration and dashboard.

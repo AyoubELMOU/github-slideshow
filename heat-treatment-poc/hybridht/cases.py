@@ -262,3 +262,153 @@ def p4_induction_hardening(freqs=(10e3, 30e3, 100e3), steel="42CrMo4", margins=(
                       profile=(r["x"][r["t"] == times[-1]], r["T"][r["t"] == times[-1]]))
     return dict(name=f"P4 induction hardening ({steel})", steel=steel, ac1=ac1, ac3=ac3, margins=margins,
                 P_cold=P_cold, runs=res)
+
+
+# ================================================================ milestone 3
+# Phase transformations, hardness, retained austenite and residual stress.
+
+from . import mechanics as mech  # noqa: E402
+from . import metallurgy as metal  # noqa: E402
+
+
+def _field(res, key):
+    """Reshape snapshot CSV output (t, x, key) into t (nt,), x (nz,), F (nt, nz)."""
+    t = np.unique(res["t"])
+    x = res["x"][res["t"] == t[0]]
+    return t, x, res[key].reshape(len(t), len(x))
+
+
+def v13_thermoelastic_plate(nz=201, L=0.01):
+    """Elastic plate, quadratic temperature: sigma = -E_b alpha (T - mean T) exactly."""
+    z = np.linspace(0, L, nz)
+    alpha, dT, Ec, nu = 1.2e-5, 300.0, 200e3, 0.3
+    T = dT * (1 - z / L) ** 2                       # mean over [0, L] is dT / 3
+    eps = alpha * T[None, :]
+    r = mech.solve_layers(z, eps, np.full((1, nz), Ec), np.full((1, nz), 1e9), nu=nu)
+    ref = -Ec / (1 - nu) * alpha * (T - dT / 3.0)
+    return dict(name="V13 thermo-elastic plate vs analytical", z=z, num=r["sigma"][0], ref=ref,
+                err=float(np.max(np.abs(r["sigma"][0] - ref)) / np.max(np.abs(ref))))
+
+
+def v14_uniform_fields(nz=101):
+    """Uniform temperature and transformation history -> no stress at all (exact)."""
+    z = np.linspace(0, 0.01, nz)
+    t = np.linspace(0, 100, 201)
+    T = np.repeat((860.0 - 8.4 * t)[:, None], nz, axis=1)
+    comp = mat.STEELS["20MnCr5"]
+    ph = metal.phase_history(t, T, comp, 700.0, 830.0)
+    r = mech.solve_layers(z, mech.free_strain(T, ph), mech.youngs_modulus(T), mech.yield_strength(T, ph),
+                          mart=ph["mart"])
+    return dict(name="V14 uniform history gives zero stress", err=float(np.max(np.abs(r["sigma"]))))
+
+
+CN_QUENCH = dict(L=0.01, nx=200, dt=0.1, tend=600.0, T0=860.0, Tf=60.0, h=2000.0, k=30.0, rhocp=4.0e6, nout=1200)
+
+
+def chain_carbonitriding(stages=CN_CYCLE, steel="20MnCr5", q=CN_QUENCH, K_trip=5e-5):
+    """Furnace (C + N) -> oil quench (heat) -> phases -> hardness -> residual stress."""
+    comp = mat.STEELS[steel]
+    cn = _cn(stages, nout=1)["out"]
+    xs, C = _last(cn, "C")
+    _, N = _last(cn, "N")
+    th = ff.run("diffusion_1d.edp", L=q["L"], nx=q["nx"], dt=q["dt"], tend=q["tend"], c0=q["T0"], cs=q["Tf"],
+                beta=q["h"] / q["rhocp"], dmodel="const", D=q["k"] / q["rhocp"], nout=q["nout"])
+    t, z, T = _field(th, "c")
+    # Furnace state at t = 0; after the oil bath the load air-cools (slowly, uniformly) to 20 degC.
+    t_air = t[-1] + np.linspace(60.0, 1800.0, 30)
+    T_air = T[-1][None, :] + (20.0 - T[-1][None, :]) * np.linspace(0, 1, 31)[1:, None]
+    t = np.concatenate([[0.0], t, t_air])
+    T = np.vstack([np.full(len(z), q["T0"]), T, T_air])
+    cint = np.interp(z, xs, C + N, right=comp["C"])
+    ac1, ac3 = mat.andrews_ac1_ac3(comp)
+    ph = metal.phase_history(t, T, comp, ac1, ac3, c_interstitial=cint)
+    return _finish(dict(name=f"carbonitriding ({steel})", steel=steel, comp=comp, t=t, z=z, T=T, ph=ph,
+                        C=np.interp(z, xs, C, right=comp["C"]), N=np.interp(z, xs, N, right=0.0),
+                        hv_base=300.0, sy_base=400.0), K_trip)
+
+
+def chain_induction(freq=30e3, theat=2.0, steel="42CrMo4", P_cold=8e6, tq=120.0, ac_shift=0.0, K_trip=5e-5,
+                    nx=200, hq=None):
+    """Induction heating -> spray quench -> phases -> hardness -> residual stress."""
+    comp = mat.STEELS[steel]
+    d0 = IH_DEFAULT
+    H0 = np.sqrt(4 * P_cold / (2 * np.pi * freq * an.MU0 * d0["mur0"] * an.skin_depth(freq, d0["sigma20"], d0["mur0"])))
+    extra = {} if hq is None else dict(hq=hq)
+    out = _ih(freq=freq, H0=H0, theat=theat, tend=theat + tq, dt=5e-3, nout=int((theat + tq) / 0.05), nx=nx, **extra)
+    t, z, T = _field(out["out"], "T")
+    t = np.concatenate([[0.0], t])
+    T = np.vstack([np.full(len(z), d0["T0"]), T])
+    ac1, ac3 = mat.andrews_ac1_ac3(comp)
+    ph = metal.phase_history(t, T, comp, ac1, ac3, ac_shift=ac_shift)
+    return _finish(dict(name=f"induction {freq/1e3:.0f} kHz, {theat:g} s ({steel})", steel=steel, comp=comp,
+                        t=t, z=z, T=T, ph=ph, hv_base=300.0, sy_base=700.0, ac1=ac1, ac3=ac3), K_trip)
+
+
+def _finish(r, K_trip):
+    ph, T = r["ph"], r["T"]
+    r["hv"] = metal.hardness(ph, r["comp"], hv_base=r["hv_base"])
+    m = mech.solve_layers(r["z"], mech.free_strain(T, ph), mech.youngs_modulus(T),
+                          mech.yield_strength(T, ph, sy_base_rt=r["sy_base"]), mart=ph["mart"], K_trip=K_trip)
+    r["mech"] = m
+    r["sigma_res"] = m["sigma"][-1]
+    r["ra"] = ph["aus"][-1]
+    sy_end = mech.yield_strength(T, ph, sy_base_rt=r["sy_base"])[-1]
+    r["yield_violation"] = float(np.max(np.abs(r["sigma_res"]) - sy_end))
+    r["T_final_spread"] = float(np.ptp(T[-1]))
+    return r
+
+
+def summarize_chain(r):
+    z_mm, hv, s = r["z"] * 1e3, r["hv"], r["sigma_res"]
+    out = dict(surface_hv=float(hv[0]), core_hv=float(hv[-1]), surface_ra_pct=float(100 * r["ra"][0]),
+               max_ra_pct=float(100 * r["ra"].max()), surface_sigma_MPa=float(s[0]),
+               min_sigma_MPa=float(s.min()), max_tensile_MPa=float(s.max()),
+               max_tensile_depth_mm=float(z_mm[np.argmax(s)]),
+               equilibrium_residual=r["mech"]["equilibrium_residual"], yield_violation_MPa=r["yield_violation"],
+               T_final_spread_C=r["T_final_spread"])
+    out["chd550_mm"] = metal.depth_at_hv(z_mm, hv, 550.0)                 # ISO 2639 (case hardening)
+    out["shd_mm"] = metal.depth_at_hv(z_mm, hv, 0.8 * hv[0])              # ISO 3754 style: 0.8 x surface HV
+    return out
+
+
+def chain_checks(chains):
+    """V15/V16: equilibrium and yield-surface consistency of every chain run."""
+    eq = max(r["mech"]["equilibrium_residual"] for r in chains)
+    yv = max(r["yield_violation"] for r in chains)
+    return dict(name="V15 equilibrium (all chains)", err=float(eq)), dict(name="V16 yield consistency (all chains)", err=float(max(yv, 0.0)))
+
+
+def v17_mesh_sensitivity():
+    """Residual stress / hardness metrics at nx and 2 nx (thermal + mechanics grid)."""
+    out = {}
+    pairs = {
+        "carbonitriding": (chain_carbonitriding(), chain_carbonitriding(q=dict(CN_QUENCH, nx=400))),
+        "induction": (chain_induction(), chain_induction(nx=400)),
+    }
+    for k, (a, b) in pairs.items():
+        sa, sb = summarize_chain(a), summarize_chain(b)
+        out[k] = {m: dict(nx=sa[m], nx2=sb[m], rel=abs(sb[m] - sa[m]) / max(abs(sb[m]), 1e-9))
+                  for m in ("surface_sigma_MPa", "max_tensile_MPa", "surface_hv", "chd550_mm")}
+    err = max(v["rel"] for d in out.values() for v in d.values())
+    return dict(name="V17 mesh sensitivity of process outputs", metrics=out, err=float(err))
+
+
+def sensitivity_m3():
+    """One-at-a-time sensitivity of the key outputs to the assumed inputs."""
+    rows = []
+    def add(process, param, value, r):
+        s_ = summarize_chain(r)
+        rows.append(dict(process=process, param=param, value=value, surface_sigma_MPa=s_["surface_sigma_MPa"],
+                         max_tensile_MPa=s_["max_tensile_MPa"], surface_hv=s_["surface_hv"],
+                         surface_ra_pct=s_["surface_ra_pct"], depth_mm=s_["chd550_mm"]))
+    for K in (0.0, 5e-5, 1e-4):
+        add("carbonitriding", "K_trip [1/MPa]", K, chain_carbonitriding(K_trip=K))
+    for h in (1000.0, 2000.0, 4000.0):
+        add("carbonitriding", "oil HTC [W/m2K]", h, chain_carbonitriding(q=dict(CN_QUENCH, h=h)))
+    for K in (0.0, 5e-5, 1e-4):
+        add("induction", "K_trip [1/MPa]", K, chain_induction(K_trip=K))
+    for a in (0.0, 50.0, 100.0):
+        add("induction", "Ac shift [C]", a, chain_induction(ac_shift=a))
+    for h in (1e4, 2e4, 4e4):
+        add("induction", "spray HTC [W/m2K]", h, chain_induction(hq=h))
+    return rows

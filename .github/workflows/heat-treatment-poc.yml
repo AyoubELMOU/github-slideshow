@@ -23,7 +23,7 @@ jobs:
       - name: Regression tests (FreeFEM vs analytical, data pipeline)
         run: python -m pytest -q tests
       - name: Verification & validation report (no PINN)
-        run: python scripts/run_all.py --skip-pinn
+        run: python scripts/run_all.py --skip-pinn --skip-slow
       - uses: actions/upload-artifact@v4
         with:
           name: vv-report

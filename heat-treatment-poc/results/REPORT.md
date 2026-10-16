@@ -88,9 +88,65 @@ Grieveson & Turkdogan (1964); C-N thermodynamic interaction not yet included.
 
 ![comparison](process_comparison.png)
 
+## Milestone 3: phases, hardness, retained austenite, residual stress
+
+Chain: diffusion (C + N) or induction heating → quench heat transfer → austenitization (lever rule
+Ac1–Ac3, Andrews) → martensite (Koistinen–Marburger, Ms by van Bohemen 2012 with C + N) → hardness
+(Maynier 1978 for martensite, rule of mixtures) → equi-biaxial elasto-plastic layer model with
+phase-specific volumes (Moyer & Ansell 1975) and TRIP. Not modelled yet: diffusional
+transformations on cooling (needs CCT data), tempering, C–N interaction.
+
+### Verification
+
+| Case | Error | Tolerance | Result |
+|---|---|---|---|
+| V13 thermo-elastic plate vs analytical | 6.25e-06 | 0.0001 | PASS |
+| V14 uniform history gives zero stress | 0.00e+00 | 1e-10 | PASS |
+| V15 equilibrium (all chains) | 1.35e-14 | 1e-10 | PASS |
+| V16 yield consistency (all chains) | 0.00e+00 | 1e-06 | PASS |
+| V17 mesh sensitivity of process outputs | 1.11e-03 | 0.02 | PASS |
+
+### Process outputs (model only, assumed properties)
+
+| Output | Carbonitriding (20MnCr5, 4 h 860 °C, oil) | Induction (42CrMo4, 30 kHz 2 s, spray) |
+|---|---|---|
+| Surface hardness [HV] | 682 | 696 |
+| Core hardness [HV] | 457 | 300 |
+| CHD at 550 HV [mm] | 0.67 | 2.26 |
+| Depth at 0.8 × surface HV [mm] | 0.68 | 2.26 |
+| Surface retained austenite [%] | 27.5 | 3.4 |
+| Surface residual stress [MPa] | -536 | -548 |
+| Most compressive [MPa] | -666 | -574 |
+| Peak tensile [MPa] | 229 | 616 |
+| Depth of tensile peak [mm] | 1.20 | 5.51 |
+
+![m3 profiles](process_m3_profiles.png)
+
+![m3 stress history](process_m3_stress_history.png)
+
+### Sensitivity to assumed inputs (one at a time)
+
+| Process | Parameter | Value | Surface σ [MPa] | Peak tensile [MPa] | Surface HV | Surface RA [%] | CHD-550 [mm] |
+|---|---|---|---|---|---|---|---|
+| carbonitriding | K_trip [1/MPa] | 0 | -1613 | 245 | 682 | 27.5 | 0.67 |
+| carbonitriding | K_trip [1/MPa] | 5e-05 | -536 | 229 | 682 | 27.5 | 0.67 |
+| carbonitriding | K_trip [1/MPa] | 0.0001 | -309 | 139 | 682 | 27.5 | 0.67 |
+| carbonitriding | oil HTC [W/m2K] | 1000 | -534 | 143 | 674 | 27.5 | 0.65 |
+| carbonitriding | oil HTC [W/m2K] | 2000 | -536 | 229 | 682 | 27.5 | 0.67 |
+| carbonitriding | oil HTC [W/m2K] | 4000 | -542 | 312 | 695 | 27.5 | 0.69 |
+| induction | K_trip [1/MPa] | 0 | -1321 | 621 | 696 | 3.4 | 2.26 |
+| induction | K_trip [1/MPa] | 5e-05 | -548 | 616 | 696 | 3.4 | 2.26 |
+| induction | K_trip [1/MPa] | 0.0001 | -418 | 615 | 696 | 3.4 | 2.26 |
+| induction | Ac shift [C] | 0 | -548 | 616 | 696 | 3.4 | 2.26 |
+| induction | Ac shift [C] | 50 | -567 | 614 | 696 | 3.4 | 1.89 |
+| induction | Ac shift [C] | 100 | -589 | 613 | 696 | 3.4 | 1.45 |
+| induction | spray HTC [W/m2K] | 10000 | -582 | 615 | 684 | 3.5 | 2.26 |
+| induction | spray HTC [W/m2K] | 20000 | -548 | 616 | 696 | 3.4 | 2.26 |
+| induction | spray HTC [W/m2K] | 40000 | -491 | 617 | 700 | 3.4 | 2.26 |
+
 ## PINN (hybrid layer)
 
-Forward: max error vs analytical 0.27 % of range (tolerance 3 %) → **PASS**. Training 256 s on CPU (20000 steps); inference 1.82 ms for a 301-point profile.
+Forward: max error vs analytical 0.27 % of range (tolerance 3 %) → **PASS**. Training 269 s on CPU (20000 steps); inference 2.52 ms for a 301-point profile.
 
 | t [h] | PINN vs analytical | FreeFEM vs analytical |
 |---|---|---|
