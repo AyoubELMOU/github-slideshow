@@ -1,0 +1,289 @@
+{
+  "geometry": {
+    "shape": "solid cylinder",
+    "diameter_mm": 50.0,
+    "length_mm": "[length; >= 200 mm assumed so mid-length is free of end effects]",
+    "model": "1D radial (generalized plane strain) at mid-length; FreeFEM axisymmetric r-z for end effects"
+  },
+  "steels": {
+    "C45": {
+      "name": "C45",
+      "composition_wt_pct": {
+        "C": 0.45,
+        "Si": 0.25,
+        "Mn": 0.65
+      },
+      "composition_source": "mid-range EN 10083-2 (nominal)",
+      "initial_state": "normalized (ferrite-pearlite)",
+      "Ac1_C": 723,
+      "Ac3_C": 765,
+      "Ms_vanBohemen_C": 331,
+      "Ms_Andrews_C": 329,
+      "HV_martensite_Maynier_water_quench": 673,
+      "qp_ideal": {
+        "QT_opt_C": 190.0,
+        "RA_max_ideal": 0.212,
+        "C_austenite_wt": 2.125,
+        "primary_martensite": 0.788
+      }
+    },
+    "42CrMo4": {
+      "name": "42CrMo4",
+      "composition_wt_pct": {
+        "C": 0.42,
+        "Si": 0.25,
+        "Mn": 0.75,
+        "Cr": 1.05,
+        "Mo": 0.22
+      },
+      "composition_source": "mid-range EN 10083-3 (nominal)",
+      "initial_state": "quenched and tempered",
+      "Ac1_C": 740,
+      "Ac3_C": 762,
+      "Ms_vanBohemen_C": 326,
+      "Ms_Andrews_C": 324,
+      "HV_martensite_Maynier_water_quench": 662,
+      "qp_ideal": {
+        "QT_opt_C": 188.0,
+        "RA_max_ideal": 0.218,
+        "C_austenite_wt": 1.922,
+        "primary_martensite": 0.781
+      }
+    },
+    "40NiCrMo16": {
+      "name": "40NiCrMo16",
+      "composition_wt_pct": {
+        "C": 0.4,
+        "Si": 0.25,
+        "Mn": 0.65,
+        "Ni": 4.0,
+        "Cr": 1.8,
+        "Mo": 0.35
+      },
+      "composition_source": "ASSUMED by analogy with 36NiCrMo16; confirm",
+      "initial_state": "quenched and tempered",
+      "Ac1_C": 686,
+      "Ac3_C": 704,
+      "Ms_vanBohemen_C": 256,
+      "Ms_Andrews_C": 255,
+      "HV_martensite_Maynier_water_quench": 686,
+      "qp_ideal": {
+        "QT_opt_C": 149.0,
+        "RA_max_ideal": 0.308,
+        "C_austenite_wt": 1.299,
+        "primary_martensite": 0.692
+      }
+    }
+  },
+  "cases": {
+    "quenching_partitioning": {
+      "suitability": {
+        "C45": "not recommended: low hardenability at Ø50 and low Si (carbides consume C)",
+        "42CrMo4": "research case: low Si limits carbon partitioning",
+        "40NiCrMo16": "best of the three (hardenability, low Ms); low Si still a limit"
+      },
+      "inputs": {
+        "austenitize": {
+          "C45": "815 °C (Ac3 + 50), until core within 5 °C, + 15 min",
+          "42CrMo4": "812 °C (Ac3 + 50), until core within 5 °C, + 15 min",
+          "40NiCrMo16": "754 °C (Ac3 + 50), until core within 5 °C, + 15 min"
+        },
+        "quench to QT": {
+          "C45": "QT ≈ 190 °C (idealized optimum; refine with OpenCalphad CCE), salt bath or polymer",
+          "42CrMo4": "QT ≈ 188 °C (idealized optimum; refine with OpenCalphad CCE), salt bath or polymer",
+          "40NiCrMo16": "QT ≈ 149 °C (idealized optimum; refine with OpenCalphad CCE), salt bath or polymer"
+        },
+        "partition": {
+          "C45": "PT 400 °C, tP 10–1000 s (DoE)",
+          "42CrMo4": "PT 400 °C, tP 10–1000 s (DoE)",
+          "40NiCrMo16": "PT 400 °C, tP 10–1000 s (DoE)"
+        },
+        "final cool": {
+          "C45": "air to 20 °C",
+          "42CrMo4": "air to 20 °C",
+          "40NiCrMo16": "air to 20 °C"
+        }
+      },
+      "specific_outputs": [
+        "retained austenite fraction and carbon vs radius",
+        "fresh martensite vs radius",
+        "whether the core reaches QT before diffusional transformation (needs CCT data)"
+      ],
+      "tools": [
+        "OpenCalphad: T0, CCE, carbide driving force",
+        "PRISMS-PF: partitioning with carbides",
+        "OpenFOAM: bath HTC",
+        "FreeFEM: heat, KM, partitioning law, stress"
+      ],
+      "poc_status": "not implemented"
+    },
+    "carburizing_QT": {
+      "suitability": {
+        "C45": "not recommended: medium-carbon grade; carburizing gives little case/core contrast and high retained austenite; modelled for comparison only",
+        "42CrMo4": "not recommended: medium-carbon grade; carburizing gives little case/core contrast and high retained austenite; modelled for comparison only",
+        "40NiCrMo16": "not recommended: medium-carbon grade; carburizing gives little case/core contrast and high retained austenite; modelled for comparison only"
+      },
+      "inputs": {
+        "carburize": {
+          "C45": "900 °C, carbon potential 0.80 % (restricted), 2 h boost + 1 h diffuse at 0.70 %",
+          "42CrMo4": "900 °C, carbon potential 0.80 % (restricted), 2 h boost + 1 h diffuse at 0.70 %",
+          "40NiCrMo16": "900 °C, carbon potential 0.80 % (restricted), 2 h boost + 1 h diffuse at 0.70 %"
+        },
+        "quench": {
+          "C45": "water-polymer (low hardenability; crack risk)",
+          "42CrMo4": "oil 60 °C",
+          "40NiCrMo16": "oil 60 °C or gas (high hardenability)"
+        },
+        "temper": {
+          "C45": "180 °C, 2 h",
+          "42CrMo4": "180 °C, 2 h",
+          "40NiCrMo16": "180 °C, 2 h"
+        }
+      },
+      "specific_outputs": [
+        "carbon profile",
+        "check of the carbide limit at the surface",
+        "case depth CHD at 550 HV"
+      ],
+      "tools": [
+        "OpenCalphad: carbon activity, carbide limit",
+        "OpenFOAM: furnace β, quench HTC",
+        "FreeFEM: C diffusion, heat, phases, tempering, stress"
+      ],
+      "poc_status": "1D slab chain verified (no tempering yet); needs radial geometry"
+    },
+    "nitriding": {
+      "suitability": {
+        "C45": "use nitrocarburizing instead: no nitride formers, shallow and soft diffusion zone",
+        "42CrMo4": "recommended (Cr, Mo nitride formers)",
+        "40NiCrMo16": "recommended (Cr); Ni does not form nitrides"
+      },
+      "inputs": {
+        "pre-treatment": {
+          "C45": "normalized or Q&T",
+          "42CrMo4": "Q&T, tempered ≥ 580 °C",
+          "40NiCrMo16": "Q&T, tempered ≥ 580 °C"
+        },
+        "treatment": {
+          "C45": "gas nitrocarburizing 570 °C, 2 h, [NH3 + CO2 ratio]",
+          "42CrMo4": "gas nitriding 520 °C, 30 h, KN from the Lehrer diagram for a thin γ′ layer",
+          "40NiCrMo16": "gas nitriding 520 °C, 30 h, KN from the Lehrer diagram for a thin γ′ layer"
+        },
+        "cool": {
+          "C45": "slow, in N2",
+          "42CrMo4": "slow, in N2",
+          "40NiCrMo16": "slow, in N2"
+        }
+      },
+      "specific_outputs": [
+        "nitrogen profile",
+        "compound-layer thickness and phase (ε / γ′)",
+        "nitriding hardness depth (core + 50 HV)"
+      ],
+      "tools": [
+        "OpenCalphad: Fe–N–Cr, Lehrer diagram",
+        "QE/LAMMPS: N trapping energies",
+        "OpenFOAM: NH3 dissociation → KN",
+        "FreeFEM: diffusion–reaction, compound layer, stress"
+      ],
+      "poc_status": "not implemented (N diffusion exists in the carbonitriding solver)"
+    },
+    "induction": {
+      "suitability": {
+        "C45": "recommended (classic induction grade); fast quench needed",
+        "42CrMo4": "recommended",
+        "40NiCrMo16": "possible; high hardenability, watch cracking and retained austenite"
+      },
+      "inputs": {
+        "pre-treatment": {
+          "C45": "normalized or Q&T",
+          "42CrMo4": "Q&T",
+          "40NiCrMo16": "Q&T"
+        },
+        "heating": {
+          "C45": "scan hardening, 10–30 kHz (hot skin depth 5.0 / 2.9 mm), target 2–3 mm, [power], [scan speed], [coil gap]; peak T ≥ Ac3 = 765 °C + rapid-heating margin",
+          "42CrMo4": "scan hardening, 10–30 kHz (hot skin depth 5.0 / 2.9 mm), target 2–3 mm, [power], [scan speed], [coil gap]; peak T ≥ Ac3 = 762 °C + rapid-heating margin",
+          "40NiCrMo16": "scan hardening, 10–30 kHz (hot skin depth 5.0 / 2.9 mm), target 2–3 mm, [power], [scan speed], [coil gap]; peak T ≥ Ac3 = 704 °C + rapid-heating margin"
+        },
+        "quench": {
+          "C45": "spray, water-polymer (higher severity)",
+          "42CrMo4": "spray, polymer",
+          "40NiCrMo16": "spray, mild polymer (crack risk)"
+        },
+        "temper": {
+          "C45": "180 °C, 1 h",
+          "42CrMo4": "180 °C, 1 h",
+          "40NiCrMo16": "180 °C, 1 h"
+        }
+      },
+      "specific_outputs": [
+        "surface hardening depth SHD (0.8 × minimum surface HV)",
+        "peak temperature map",
+        "tensile peak below the case"
+      ],
+      "tools": [
+        "PRISMS-PF: rapid austenitization → Ac3 shift",
+        "OpenFOAM: spray HTC",
+        "FreeFEM: EM μ(T,H) ⇄ heat → phases → stress"
+      ],
+      "poc_status": "1D slab coupled model verified; needs radial geometry and scanning coil"
+    },
+    "laser_and_laser_induction": {
+      "suitability": {
+        "C45": "possible; self-quench works for thin cases",
+        "42CrMo4": "recommended",
+        "40NiCrMo16": "recommended (high hardenability helps self-quench)"
+      },
+      "inputs": {
+        "laser": {
+          "C45": "diode laser on the rotating bar, helical track, [power], [spot size], [scan speed], [overlap], absorptivity [measured or calibrated]",
+          "42CrMo4": "diode laser on the rotating bar, helical track, [power], [spot size], [scan speed], [overlap], absorptivity [measured or calibrated]",
+          "40NiCrMo16": "diode laser on the rotating bar, helical track, [power], [spot size], [scan speed], [overlap], absorptivity [measured or calibrated]"
+        },
+        "hybrid option": {
+          "C45": "induction preheat/post-heat zone ahead of the spot, [frequency], [preheat temperature]",
+          "42CrMo4": "induction preheat/post-heat zone ahead of the spot, [frequency], [preheat temperature]",
+          "40NiCrMo16": "induction preheat/post-heat zone ahead of the spot, [frequency], [preheat temperature]"
+        },
+        "limits": {
+          "C45": "surface below solidus; peak T ≥ Ac3 = 765 °C + rapid-heating margin",
+          "42CrMo4": "surface below solidus; peak T ≥ Ac3 = 762 °C + rapid-heating margin",
+          "40NiCrMo16": "surface below solidus; peak T ≥ Ac3 = 704 °C + rapid-heating margin"
+        }
+      },
+      "specific_outputs": [
+        "track depth and width",
+        "back-tempered overlap bands",
+        "melting margin",
+        "residual stress along and across the track"
+      ],
+      "tools": [
+        "QE: absorptivity trends",
+        "OpenCalphad: solidus, Ac1/Ac3",
+        "PRISMS-PF: superheated austenitization",
+        "OpenFOAM: melt pool if melting",
+        "FreeFEM: moving source (+ eddy currents), phases, stress"
+      ],
+      "poc_status": "not implemented (eddy-current solver reusable for the hybrid)"
+    }
+  },
+  "common_outputs": [
+    "radial profiles at mid-length: temperature history, phase fractions, hardness, retained austenite",
+    "residual stresses: hoop, axial, radial vs radius; maximum tension and its depth",
+    "distortion: diameter and length change",
+    "process KPIs: cycle time, energy per part",
+    "sensitivity of the outputs to each assumed input"
+  ],
+  "validation_measurements": [
+    "hardness traverse (HV1) on a cross-section",
+    "XRD residual stress with layer removal",
+    "XRD retained austenite",
+    "metallography",
+    "diameter and length (CMM)"
+  ],
+  "notes": [
+    "Ac1/Ac3: Andrews (1965); Ms: van Bohemen (2012); HV: Maynier (1978) at 1e5 °C/h.",
+    "Q&P optimum: idealized full partitioning (upper bound).",
+    "Process settings are DoE starting points, not validated recipes; [brackets] = to supply."
+  ]
+}
